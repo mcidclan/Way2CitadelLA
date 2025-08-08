@@ -25,7 +25,7 @@ Deux types coexistent :
 - **Proxys distants** : passent obligatoirement par les proxys dédiés pour accéder aux secrets, créant une chaîne de confiance hiérarchique
 
 ### Guardhouse
-Module de validation situé à côté de la Citadelle, permettant à tous les proxys de vérifier la validité d'un utilisateur avant toute action sur la Citadelle ou le coffre-fort. Ce module centralise les statuts de révocation et les permissions en temps réel. En cas de panne, aucun accès n'est possible jusqu'à restauration. Une entité de secours peut être prévue pour la redondance.
+Module de validation situé à côté de la Citadelle, permettant aux proxys dédiés de vérifier la validité d'un utilisateur avant toute action sur la Citadelle ou le coffre-fort. Les proxys distants accèdent à cette validation par l'intermédiaire de leur proxy dédié, maintenant la chaîne de confiance hiérarchique. Ce module centralise les statuts de révocation et les permissions en temps réel. En cas de panne, aucun accès n'est possible jusqu'à restauration. Une entité de secours peut être prévue pour la redondance.
 
 ### Guardhouse Auto-régénérante
 En cas de corruption complète, la Citadelle conserve les métadonnées des utilisateurs (ID et logs d'accès). Un processus de reconstruction supervisé permet à un administrateur de relancer la Guardhouse : les utilisateurs sont progressivement réajoutés selon leurs interactions avec la Citadelle, l'administrateur validant ou refusant chaque réintégration via une interface de monitoring.
@@ -39,10 +39,10 @@ Ils possèdent leur trousseau ou wallet avec leurs secrets/clés basé sur les s
 ### APIs
 
 #### API externe
-Permet d'interfacer l'utilisateur aux proxys et gère l'identité décentralisée via les standards DID. Cette API permet également de faire passerelle pour la récupération et l'envoi des données entre un service de la Citadelle et l'utilisateur.
+Cette API sert de passerelle pour la récupération et transmission de données entre les services de la Citadelle et les utilisateurs. Elle agit comme un composant intermédiaire qui canalise toutes les demandes de données et services depuis les proxys vers la Citadelle, assurant des protocoles de communication standardisés.
 
 #### API interne
-Communication unidirectionnelle entre Citadelle et proxy via authentification éphémère :
+Située dans les proxys dédiés, cette interface gère les communications entre Citadelle et proxy via authentification éphémère :
 - La Citadelle reçoit un bloc d'instructions et les clés nécessaires avec une durée maximale limitée
 - En sortie, elle initie une connexion éphémère vers le proxy
 - Les connexions s'invalident automatiquement après usage, garantissant qu'aucune session persistante ne reste ouverte
@@ -61,3 +61,41 @@ Déclenchée uniquement lors de changements sur les services/données de la Cita
 ### Continuité
 Les proxys ne sont pas notifiés immédiatement mais découvrent les changements lors de leur prochaine interaction, permettant une architecture résiliente et découplée.
 
+## Vue d'ensemble de l'architecture système
+
+```mermaid
+graph TD
+    User["Utilisateur<br/>(Portefeuille DID)"]
+
+    subgraph ProxyRemote["Proxy Distant"]
+    end
+
+    subgraph ProxyDedicated["Proxy Dédié"]
+        ProxyToCitadelInterface["Interface Proxy vers Citadelle"]
+    end
+
+    ExternalPipeAPI["Interface API Externe<br/>(canalisation données et service)"]
+
+    Vault["Coffre-Fort"]
+    Guardhouse["Guardhouse"]
+
+    Citadel["Citadelle"]
+
+    User --> ProxyRemote
+    User --> ProxyDedicated
+
+    ProxyRemote --> ProxyDedicated
+
+    ProxyDedicated --> ExternalPipeAPI
+
+    ExternalPipeAPI --> Citadel
+
+    ProxyDedicated --> Vault
+    ProxyDedicated --> Guardhouse
+
+    ProxyDedicated --> ProxyToCitadelInterface
+    ProxyToCitadelInterface --> Citadel
+
+    style Citadel fill:#6c7b95,stroke:#333,stroke-width:2
+    classDef center fill:#f9f;
+```

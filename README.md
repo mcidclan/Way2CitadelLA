@@ -25,7 +25,7 @@ Two types coexist:
 - **Remote proxies**: must go through dedicated proxies to access secrets, creating a hierarchical trust chain
 
 ### Guardhouse
-Validation module located alongside the Citadel, allowing all proxies to verify user validity before any action on the Citadel or vault. This module centralizes revocation status and permissions in real-time. In case of failure, no access is possible until restoration. A backup entity can be planned for redundancy.
+Validation module located alongside the Citadel, allowing dedicated proxies to verify user validity before any action on the Citadel or vault. Remote proxies access this validation through their dedicated proxy intermediary, maintaining the hierarchical trust chain. This module centralizes revocation status and permissions in real-time. In case of failure, no access is possible until restoration. A backup entity can be planned for redundancy.
 
 ### Self-Regenerating Guardhouse
 In case of complete corruption, the Citadel preserves user metadata (ID and access logs). A supervised reconstruction process allows an administrator to restart the Guardhouse: users are progressively re-added based on their interactions with the Citadel, with the administrator validating or refusing each reintegration via a monitoring interface.
@@ -38,11 +38,11 @@ They possess their keychain or wallet with their secrets/keys based on DID (Dece
 
 ### APIs
 
-#### External API
-Interfaces users with proxies and manages decentralized identity via DID standards. This API also serves as a gateway for data retrieval and transmission between a Citadel service and the user.
+### External Pipe API Interface
+This Pipe serves as a gateway for data retrieval and transmission between the Citadel service and users. It acts as an intermediary component that channels all data and service requests from proxies to the Citadel, ensuring standardized communication protocols.
 
-#### Internal API
-Unidirectional communication between Citadel and proxy via ephemeral authentication:
+### Proxy To Citadel API Interface
+Located within dedicated proxies, this interface manages communications between Citadel and proxy via ephemeral authentication:
 - The Citadel receives an instruction block and necessary keys with a limited maximum duration
 - On output, it initiates an ephemeral connection to the proxy
 - Connections automatically invalidate after use, ensuring no persistent sessions remain open
@@ -78,8 +78,45 @@ Proxies are not immediately notified but discover changes during their next inte
 - w2cla-citadel  
   Hosts services and shared data within the organization, preserving user metadata for traceability.
 
+## System Architecture Overview
+
+```mermaid
+graph TD
+    User["User<br/>(DID Wallet)"]
+
+    subgraph ProxyRemote["Remote Proxy"]
+    end
+
+    subgraph ProxyDedicated["Dedicated Proxy"]
+        ProxyToCitadelInterface["Proxy To Citadel Interface"]
+    end
+
+    ExternalPipeAPI["External Pipe API Interface<br/>(channeling data and service)"]
+
+    Vault["Vault"]
+    Guardhouse["Guardhouse"]
+
+    Citadel["Citadel"]
+
+    User --> ProxyRemote
+    User --> ProxyDedicated
+
+    ProxyRemote --> ProxyDedicated
+
+    ProxyDedicated --> ExternalPipeAPI
+
+    ExternalPipeAPI --> Citadel
+
+    ProxyDedicated --> Vault
+    ProxyDedicated --> Guardhouse
+
+    ProxyDedicated --> ProxyToCitadelInterface
+    ProxyToCitadelInterface --> Citadel
+
+    style Citadel fill:#6c7b95,stroke:#333,stroke-width:2
+    classDef center fill:#f9f;
+```
 
 **Switch to other languages:**
-- [English Specification](/specs/spec.en.md)
-- [Spécification française](/specs/spec.fr.md)
+- [Spécification française](/langs/spec.fr.md)
 
